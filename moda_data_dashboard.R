@@ -1,7 +1,7 @@
 #-------------------------------------------------------------------------------
 # Set path to working directory
 #-------------------------------------------------------------------------------
-LOCAL = TRUE
+LOCAL = FALSE
 if (LOCAL) {
   BASE_DIR <<- '/Users/zco7139/Library/CloudStorage/OneDrive-Takeda/Documents/GitHub/Shiny-UA/'
 } else {
@@ -29,12 +29,31 @@ source(paste0(BASE_DIR, "utils.R"))
 #-------------------------------------------------------------------------------
 ui <- fluidPage(
   
-  # Custom CSS to make the sidebar vertically scrollable
+  # Custom CSS to make the sidebar vertically scrollable and style the button
   tags$head(
     tags$style(HTML("
       .sidebar {
         max-height: 90vh;  /* Set the maximum height for the sidebar */
         overflow-y: auto;  /* Enable vertical scrolling */
+        /* Remove text-align from here */
+      }
+      
+      .center-button {
+        text-align: center;  /* Center only the button */
+        margin-bottom: 10px;  /* Space below the button */
+      }
+      
+      #update {
+        background-color: #CC0000;  /* Red background */
+        color: white;  /* White text */
+        border: none;  /* Remove border */
+        padding: 10px 20px;  /* Adjust padding */
+        font-size: 16px;  /* Increase font size */
+        cursor: pointer;  /* Change cursor to pointer */
+        display: inline-block;  /* Keep button inline */
+      }
+      #update:hover {
+        background-color: #990000;  /* Darker red on hover */
       }
     "))
   ),
@@ -44,9 +63,14 @@ ui <- fluidPage(
       class = "sidebar",  # Apply custom class to sidebar
       width = 2,
       
-      actionButton("update", "Update"),
+      div(style = "margin-bottom: 10px;"),
       
-      div(style = "margin-bottom: 20px;"),
+      # Button centered inside the div
+      div(class = "center-button", 
+          actionButton("update", "Update")
+      ),
+      
+      div(style = "margin-bottom: 30px;"),
       
       # Filter - will be dynamically generated
       uiOutput("dynamicFilterInput"),
@@ -156,7 +180,7 @@ server <- function(input, output, session) {
   output$dynamicFilterInput <- renderUI({
     req(key_values())  # Ensure key_values() is available
     
-    checkboxGroupInput("filter", "Filter:", 
+    checkboxGroupInput("filter", " - FILTER -", 
                        choices = names(key_values()), 
                        selected = names(key_values()))  # Default to all keys
   })
@@ -164,7 +188,7 @@ server <- function(input, output, session) {
   output$dynamicColorByInput <- renderUI({
     req(key_values())
     
-    checkboxGroupInput("color_by", "Color By:",
+    checkboxGroupInput("color_by", " - COLOR BY -",
                        choices = names(key_values()), 
                        selected = NULL)
   })
