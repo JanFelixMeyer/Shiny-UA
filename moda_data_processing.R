@@ -305,6 +305,13 @@ txn_nms = c('metric_id', 'metric_range_start_dt', 'metric_range_end_dt', 'metric
 txn_metric = data_trending_long[,.SD, .SDcol = txn_nms]
 
 
+## Transform columns
+ref_metric[,metric_id := as.character(metric_id)]
+key_cols = setdiff(names(ref_metric), c("metric_id", "metric_nm", 'group_map_json_obj'))
+ref_metric[,(key_cols) := lapply(.SD, as.character), .SDcols = key_cols]
+
+txn_metric[,metric_id := as.character(metric_id)]
+
 ## Save data
 fwrite(ref_metric, paste0(PATH_DATA, 'ref_metric.csv'))
 fwrite(txn_metric, paste0(PATH_DATA, 'txn_metric.csv'))
