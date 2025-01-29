@@ -2,6 +2,7 @@
 # Set path to working directory
 #-------------------------------------------------------------------------------
 LOCAL = TRUE
+PRINT = TRUE
 if (LOCAL) {
   BASE_DIR <<- '/Users/zco7139/Library/CloudStorage/OneDrive-Takeda/Documents/GitHub/Shiny-UA/'
 } else {

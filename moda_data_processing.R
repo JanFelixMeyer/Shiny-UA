@@ -72,24 +72,24 @@ for (file in files) {
 # k = 10 | limit_rule            |     35185      |     21     |
 # k = 11 | limit                 |     10061      |     40     |
 # k = 12 | limit_token           |        10      |     17     |
-# k = 13 | location              |       191      |     30     |
-# k = 14 | location_type         |        11      |     18     |
+# k = 13 | location              |       191      |     30     | x
+# k = 14 | location_type         |        11      |     18     | x
 # k = 15 | media                 |        40      |     28     |
 # k = 16 | organism_found        |      1536      |     48     |
 # k = 17 | payload_queue_message |         6      |     23     |
 # k = 18 | personnel_site        |        24      |     19     |
 # k = 19 | plan                  |       346      |     41     |
 # k = 20 | product               |        80      |     18     |
-# k = 21 | rpt_sample_mart       |     54892      |     89     |
+# k = 21 | rpt_sample_mart       |     54892      |     89     | x
 # k = 22 | sample_product        |     23212      |     18     |
 # k = 23 | sample_review         |       505      |     17     |
 # k = 24 | sample                |     35577      |     45     |
-# k = 25 | site                  |      1328      |     23     |
+# k = 25 | site                  |      1328      |     23     | x
 # k = 26 | site_type             |        17      |     16     |
 # k = 27 | table_note            |     49612      |     20     |
 # k = 28 | test_category         |        17      |     17     |
 # k = 29 | test                  |      7109      |     41     |
-# k = 30 | test_type             |        15      |     28     |
+# k = 30 | test_type             |        15      |     28     | x
 # k = 31 | time_frame            |        89      |     49     |
 # k = 32 | user                  |       243      |     32     |
 # ------ | --------------------- | -------------- | ---------- |
@@ -109,7 +109,7 @@ rpt_sample_mart[,alert_limit_value := as.numeric(alert_limit_value)]
 ## Create wide dataset for different location types associated to a specific 
 # location_id (breadcrumb structure with labels instead of ids) and merge with 
 # rpt_sample_mart
-location_type_tmp = data[[14]][, list(location_type_id, location_type_name = name)]
+location_type_tmp = data[[14]][,list(location_type_id, location_type_name = name)]
 location_tmp = data[[13]][,list(location_type_id, location_id, location_parent_id = parent_id, location_id_breadcrumb, location_name = name, location_path, location_description = description)]
 location_tmp[, row_id := .I]
 location_tmp[, breadcrumb_ids := strsplit(location_id_breadcrumb, "\\.")]
@@ -263,7 +263,7 @@ data_trending = data_final_long[,list(CRR_1 = sum(param_actl_num != 0, na.rm = T
                                       Action_ER_1 = sum(param_actl_num != 0, na.rm = TRUE),
                                       Alert_ER_1 = sum(param_actl_num != 0, na.rm = TRUE),
                                       Count_Non_NA = sum(!is.na(param_actl_num)))
-                                , by = CALC_KEY]
+                                ,by = CALC_KEY]
 data_trending[,CRR := 100 * (CRR_1/Count_Non_NA)]
 data_trending[,Action_ER := 100 * (Action_ER_1/Count_Non_NA)]
 data_trending[,Alert_ER := 100 * (Alert_ER_1/Count_Non_NA)]
@@ -311,6 +311,7 @@ key_cols = setdiff(names(ref_metric), c("metric_id", "metric_nm", 'group_map_jso
 ref_metric[,(key_cols) := lapply(.SD, as.character), .SDcols = key_cols]
 
 txn_metric[,metric_id := as.character(metric_id)]
+
 
 ## Save data
 fwrite(ref_metric, paste0(PATH_DATA, 'ref_metric.csv'))
