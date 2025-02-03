@@ -4,10 +4,10 @@ username: jan-felix.meyer@takeda.com
 account: jan-felix.meyer@takeda.com
 server: usprd-rstudioconnect.onetakeda.com
 hostUrl: https://usprd-rstudioconnect.onetakeda.com/__api__
-appId: 4773
-bundleId: 430052
-url: https://usprd-rstudioconnect.onetakeda.com/Shiny-UA/
+appId: 4776
+bundleId: 435251
+url: https://usprd-rstudioconnect.onetakeda.com/content/a4f32ca7-ba35-4a44-ba5d-fb41ae44f1b7/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: moda_data_processing.R
+ignoredFiles: debug.R|moda_data_processing.R

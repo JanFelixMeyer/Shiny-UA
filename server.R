@@ -1,4 +1,48 @@
+#-------------------------------------------------------------------------------
+# Load packages
+#-------------------------------------------------------------------------------
+library(shiny)
+library(shinyWidgets)
+library(ggplot2)
+library(dplyr)
+library(data.table)
+library(viridis)
+library(DT)
+
+
+#-------------------------------------------------------------------------------
+# Server function
+#-------------------------------------------------------------------------------
+
 server <- function(input, output, session) {
+  
+  #-----------------------------------------------------------------------------
+  # Definition of global variables
+  #-----------------------------------------------------------------------------
+  PRINT = FALSE
+  
+  
+  #-----------------------------------------------------------------------------
+  # Define ggplot2-theme
+  #-----------------------------------------------------------------------------
+  my_theme = theme_minimal()
+  my_theme = my_theme + theme(
+    
+    # Title and axis labels
+    plot.title = element_text(size = 16),    # Increase plot title size
+    axis.title = element_text(size = 14),    # Increase axis titles size
+    axis.text = element_text(size = 12),     # Increase axis tick labels size
+    
+    # Legend text
+    legend.title = element_blank(),
+    legend.text = element_text(size = 12),   # Increase legend text size
+    
+    # Other settings
+    legend.position = "bottom",              # Place the legend below the chart
+    legend.direction = "horizontal",         # Arrange legend items horizontally
+    strip.text = element_text(size = 14)     # Increase facet label size (if using facets)
+  )
+  
   
   #-----------------------------------------------------------------------------
   # Reference Data Processing
@@ -9,9 +53,8 @@ server <- function(input, output, session) {
   }
   
   load_ref_data = reactive({
-    data = fread(paste0(BASE_DIR, 'ref_metric.csv'))
-    # TBD: Implement selection of additional metrics later
-    data = data[metric_nm == '% CRR']
+    data = fread('ref_metric.csv')
+    #data = as.data.table(read.csv('ref_metric.csv', stringsAsFactors = FALSE))
     data
   })
   
@@ -19,27 +62,34 @@ server <- function(input, output, session) {
     load_ref_data() 
   })
   
-  # Define long version of the reference data for easier search
-  ref_data_long <- reactive({
-    req(ref_data())  # Ensure ref_data is available
-    key_cols = setdiff(names(ref_data()), c("metric_id", "metric_nm", 'group_map_json_obj'))
-    data_long = suppressWarnings(melt(ref_data(), id.vars = "metric_id", 
-                                      measure.vars = key_cols, 
-                                      variable.name = "column", 
+  metric_data <- reactive({
+    req(ref_data(), input$metric_name)  # Wait for the full data and user selection
+    ref_data()[metric_nm == input$metric_name]
+  })
+  
+  metric_data_long <- reactive({
+    req(metric_data())  # Now based on the user-selected metric
+    key_cols = setdiff(names(metric_data()), c("metric_id", "metric_nm", 'group_map_json_obj'))
+    data_long = suppressWarnings(melt(metric_data(), id.vars = "metric_id",
+                                      measure.vars = key_cols,
+                                      variable.name = "column",
                                       value.name = "value"))
-    data_long[,group := paste0(column, ":", value)]
+    data_long[, group := paste0(column, ":", value)]
     data_long
   })
   
   # Ensure key_values is available
   key_values <- reactive({
     req(input)
-    result = get_key_values(ref_data() %>% filter(metric_id %in% filter_metric_ids()))
+    result = get_key_values(metric_data())
     result
   })
   
   filter_metric_ids <- reactive({
-    req(input$filter)  # Ensure filter input is available
+    # If no filter is selected, return all metric_ids from metric_data_long
+    if (is.null(input$filter) || length(input$filter) == 0) {
+      return(unique(metric_data_long()$metric_id))
+    }
     
     selectedFilterGroups <- c()
     for (key in input$filter) {
@@ -50,10 +100,11 @@ server <- function(input, output, session) {
       }
     }
     
-    if (length(selectedFilterGroups) > 0) {
-      filteredRefData <- ref_data_long() %>% filter(group %in% selectedFilterGroups)
+    # If any filter values have been selected, filter the data; otherwise, use the entire metric_data_long
+    filteredRefData <- if (length(selectedFilterGroups) > 0) {
+      metric_data_long() %>% filter(group %in% selectedFilterGroups)
     } else {
-      filteredRefData <- ref_data_long()
+      metric_data_long()
     }
     
     metric_ids <- filteredRefData[, unique(metric_id)]
@@ -70,21 +121,29 @@ server <- function(input, output, session) {
   }
   
   load_txn_data = reactive({
-    data = fread(paste0(BASE_DIR, 'txn_metric.csv'))
+    data = fread('txn_metric.csv')
+    #data = as.data.table(read.csv('txn_metric.csv', stringsAsFactors = FALSE))
     data
   })
   
   txn_data <- reactive({ 
-    load_txn_data() 
+    load_txn_data()  
   })
   
   
   #-----------------------------------------------------------------------------
-  # Additonal functions
+  # Additional functions
   #-----------------------------------------------------------------------------
   
   if (PRINT) {
     print('Additonal functions')
+  }
+  
+  # Generate key_values list
+  get_key_values = function(data, exclude_cols = c("metric_id", "metric_nm", "group_map_json_obj")) {
+    key_values = lapply(setdiff(names(data), exclude_cols), function(col) unique(data[[col]]))
+    names(key_values) = setdiff(names(data), exclude_cols)
+    return(key_values)
   }
   
   # Reactive values to store previous selections
@@ -92,6 +151,21 @@ server <- function(input, output, session) {
     color_by = list(),
     filter = list()
   )
+  
+  wideData <- reactive({
+    # Filter txn_data using filter_metric_ids()
+    dt_txn <- txn_data() %>% filter(metric_id %in% filter_metric_ids())
+    dt_txn[,metric_actl_num := round(metric_actl_num, 2)]
+    dt_ref <- metric_data()
+    setkeyv(dt_ref, "metric_id")
+    setkeyv(dt_txn, "metric_id")
+    merged_dt <- dt_ref[dt_txn]
+    id_vars <- names(metric_data())
+    id_vars <- id_vars[! id_vars %in% c("group_map_json_obj", "metric_nm", "metric_id")]
+    formula_str <- paste(paste(id_vars, collapse = " + "), "~ metric_range_end_dt")
+    wide_dt <- dcast(merged_dt, as.formula(formula_str), value.var = "metric_actl_num")
+    wide_dt
+  })
   
   
   #-----------------------------------------------------------------------------
@@ -108,6 +182,18 @@ server <- function(input, output, session) {
   })
   outputOptions(output, "chartReady", suspendWhenHidden = FALSE)
   
+  output$dynamicMetricNameInput <- renderUI({
+    req(ref_data())
+    
+    if (PRINT) {
+      print('This is dynamicMetricNameInput')
+    }
+    
+    selectInput("metric_name", "- METRIC NAME - ",
+                choices = sort(unique(ref_data()$metric_nm)),
+                selected = sort(unique(ref_data()$metric_nm))[1])
+  })
+  
   # Render filter and color-by options
   output$dynamicFilterInput <- renderUI({
     req(key_values())
@@ -116,104 +202,89 @@ server <- function(input, output, session) {
       print('This is dynamicFilterInput')
     }
     
-    checkboxGroupInput("filter", " - FILTER -",
-                       choices = names(key_values()),
-                       selected = NULL)  # Start with no selection
+    checkboxGroupInput(
+      "filter", 
+      " - FILTER -",
+      choices = names(key_values()),
+      selected = input$filter
+    )
   })
   
   output$dynamicColorByInput <- renderUI({
-    req(key_values())  # Ensure key_values() is available
+    req(key_values())
     
     if (PRINT) {
       print('This is dynamicColorByInput')
     }
     
-    # Only render ColorBy input if any filter is selected
     if (length(input$filter) > 0) {
-      checkboxGroupInput("color_by", " - COLOR BY -",
-                         choices = input$filter,
-                         selected = NULL)  # Start with no selection
+      checkboxGroupInput(
+        "color_by", 
+        " - COLOR BY -",
+        choices = input$filter,
+        selected = input$color_by
+      )
     } else {
-      # If no filter is selected, don't render ColorBy input
       return(NULL)
     }
   })
   
   
   #-----------------------------------------------------------------------------
-  # Update available options in ColorBy based on Filter selections
+  # Update available options in ColorBy based on Filter selections and Reset
   #-----------------------------------------------------------------------------
   
-  if (PRINT) {
-    print('Update available options in ColorBy based on Filter selections')
-  }
-  
-  # Update Filter selections
-  observe({
-    req(input$filter, key_values())
-    
-    if (PRINT) {
-      print('This is updateCheckboxGroupInput for filter')
-    }
-    
-    # Update Filter
-    updateCheckboxGroupInput(
-      session, 
-      inputId = "filter", 
-      choices = names(key_values()), 
-      selected = input$filter
-    )
-  })
-  
-  # Update Color By options when Filter selections change
-  observe({
-    req(input$filter)
-    
-    if (PRINT) {
-      print('This is updateCheckboxGroupInput for color_by')
-    }
-    
-    # Get the selected keys in Filter
-    selected_filter_keys <- input$filter
-    
-    updateCheckboxGroupInput(
-      session,
-      inputId = "color_by",
-      choices = selected_filter_keys,  # Limit options to selected Filter keys
-      selected = intersect(input$color_by, selected_filter_keys)  # Preserve only valid selections
-    )
-  })
-  
-  # Reset dashboard upon click of reset button
   observeEvent(input$reset, {
-    updateCheckboxGroupInput(session, "filter", selected = NULL)
-    updateCheckboxGroupInput(session, "color_by", selected = NULL)
+    # Reset the metric name to the first available value
+    updateSelectInput(session, "metric_name", 
+                      selected = sort(unique(ref_data()$metric_nm))[1])
+    
+    # Reset the filter and color_by inputs to an empty state
+    updateCheckboxGroupInput(session, "filter", selected = character(0))
+    updateCheckboxGroupInput(session, "color_by", selected = character(0))
+    
+    # Clear stored selections so that the dynamic pickerInputs re-render with defaults
+    prev_selections$filter <- list()
+    prev_selections$color_by <- list()
   })
   
   # Dynamically generate value selection inputs based on selected keys
   output$FilterInputs <- renderUI({
     req(input$filter, length(key_values()) > 0)
-    
     if (length(input$filter) == 0) {
       return(NULL)  # No filters selected
     }
-    
     lapply(input$filter, function(key) {
-      feasible_values <- ref_data() %>%
-        filter(metric_id %in% filter_metric_ids()) %>%
-        pull(key) %>%
+      feasible_values <- ref_data() %>% 
+        pull(key) %>% 
         unique()
-      
-      prev_value <- ifelse(is.null(prev_selections$filter[[key]]), feasible_values, prev_selections$filter[[key]])
-      
-      selectInput(
+      prev_value <- if (is.null(prev_selections$filter[[key]])) {
+        character(0)
+      } else {
+        prev_selections$filter[[key]]
+      }
+      pickerInput(
         inputId = paste0("selectedFilterValues_", key),
         label = paste0(key, ":"),
         choices = feasible_values,
         selected = prev_value,
-        multiple = TRUE
+        multiple = TRUE,
+        options = list(
+          `live-search` = TRUE,
+          size = 10,
+          `actions-box` = TRUE,
+          `noneSelectedText` = 'Select one or more values'
+        )
       )
     })
+  })
+  
+  # Update stored filter selections
+  observe({
+    req(input$filter)
+    for (key in input$filter) {
+      prev_selections$filter[[key]] <- input[[paste0("selectedFilterValues_", key)]]
+    }
   })
   
   output$ColorByInputs <- renderUI({
@@ -223,122 +294,79 @@ server <- function(input, output, session) {
       print('This is ColorByInputs')
     }
     
-    isolate({
-      for (key in input$color_by) {
-        prev_selections$color_by[[key]] <- ifelse(
-          is.null(input[[paste0("selectedColorByValues_", key)]]),
-          key_values()[[key]],
-          input[[paste0("selectedColorByValues_", key)]]
-        )
-      }
-    })
-    
     lapply(input$color_by, function(key) {
-      selectInput(
+      available_values <- input[[paste0("selectedFilterValues_", key)]]
+      if (is.null(available_values)) {
+        available_values <- character(0)
+      }
+      pickerInput(
         inputId = paste0("selectedColorByValues_", key),
-        label = paste0(key, ':'),
-        choices = key_values()[[key]],
-        selected = prev_selections$color_by[[key]],  # Restore stored selections
-        multiple = TRUE
+        label = paste0(key, ":"),
+        choices = available_values,
+        selected = character(0),
+        multiple = TRUE,
+        options = list(
+          `live-search` = TRUE,
+          size = 10,
+          `actions-box` = TRUE,
+          `noneSelectedText` = 'Select one or more values'
+        )
       )
     })
   })
   
-  # Reactively update the chart when the update button is clicked
-  observeEvent(c(input$filter, lapply(input$filter, function(key) input[[paste0("selectedFilterValues_", key)]])), {
-    # Trigger reactivity chain for the chart
-    output$lineChart <- renderPlot({
-      filteredTxnData <- txn_data() %>%
-        filter(metric_id %in% filter_metric_ids())
-      
-      ggplot(filteredTxnData, aes(x = metric_range_end_dt, y = metric_actl_num, group = metric_id)) +
-        geom_line() +
-        labs(x = "Date", y = "Value") +
-        my_theme
-    })
-  }, ignoreNULL = FALSE)
-  
-  if (FALSE) {
-    observeEvent(input$update, {
-      
-      if (PRINT) {
-        print('This is Plotting')
-      }
-      
-      color_by <- input$color_by
-      filter_by <- input$filter
-      
-      # If no keys are selected, consider all keys selected by default
-      if (length(filter_by) == 0) {
-        filter_by <- names(key_values())  # Default to all keys
-      }
-      
-      selectedColorByGroups <- c()
-      if (length(color_by) > 0) {
-        for (key in color_by) {
-          selectedColorByValues <- input[[paste0("selectedColorByValues_", key)]]
-          if (!is.null(selectedColorByValues)) {
-            # Create key-value combinations
-            selectedColorByGroups <- c(selectedColorByGroups, paste(key, selectedColorByValues, sep = ":"))
-          }
-        } 
-      }
-      
-      # Derive groups for ColorBy
-      filteredRefData = ref_data()[,.SD, .SDcols = c('metric_id', color_by)]
-      filteredRefData[,(color_by) := lapply(color_by, function(col) paste0(col, ":", get(col)))]
-      filteredRefData[,color_group := do.call(paste, c(.SD, sep = " + ")), .SDcols = color_by]
-      filteredRefData[,in_selected_group := apply(.SD, 1, function(row) all(row %in% selectedColorByGroups)), .SDcols = color_by]
-      filteredRefData[in_selected_group == FALSE, color_group := 'Others']
-      num_groups <- filteredRefData[, uniqueN(color_group)]
-      color_palette <- scales::hue_pal()(num_groups)  # Generates distinct colors
-      filteredRefData[,color := color_palette[.GRP], by = color_group]
-      filteredRefData[color_group == 'Others', color := 'grey']
-      filteredRefData[,in_selected_group := NULL]
-      
-      # Merge to combine Filter with ColorBy
-      filteredTxnData = copy(txn_data() %>% filter(metric_id %in% filter_metric_ids()))
-      setkeyv(filteredRefData, 'metric_id')
-      setkeyv(filteredTxnData, 'metric_id')
-      filteredTxnData = filteredRefData[filteredTxnData]
-      
-      # Define mapping and values for colors
-      color_mapping <- unique(filteredTxnData[, .(color_group, color)])
-      color_values <- setNames(color_mapping$color, color_mapping$color_group)
-      
-      # Create the line chart using ggplot2   
-      output$lineChart <- renderPlot({
-        u = ggplot(filteredTxnData, aes(x = metric_range_end_dt, y = metric_actl_num, group = metric_id, color = color_group))
-        u = u + geom_line() 
-        u = u + scale_color_manual(values = color_values, labels = names(color_values))
-        u = u + labs(title = "", x = "Date", y = "Value")
-        u = u + my_theme
-        u
-      })
-      
-    })
-  }
-  
-  # Render the chart when the app first loads (show all grey lines)
   output$lineChart <- renderPlot({
-    filteredTxnData <- txn_data() %>%
-      filter(metric_id %in% filter_metric_ids())
+    filteredTxnData <- txn_data() %>% filter(metric_id %in% filter_metric_ids())
     
-    ggplot(filteredTxnData, aes(x = metric_range_end_dt, y = metric_actl_num, group = metric_id)) +
-      geom_line() +
-      labs(x = "Date", y = "Value") +
-      my_theme
+    if (is.null(input$color_by) || length(input$color_by) == 0) {
+      ggplot(filteredTxnData, aes(x = metric_range_end_dt, y = metric_actl_num, group = metric_id)) +
+        geom_line(color = "grey", alpha = 0.5, lwd = 1.2) +
+        labs(x = "Date", y = input$metric_name) +
+        my_theme
+    } else {
+      color_by <- input$color_by
+      selectedColorByGroups <- c()
+      for (key in color_by) {
+        selectedColorByValues <- input[[paste0("selectedColorByValues_", key)]]
+        if (!is.null(selectedColorByValues) && length(selectedColorByValues) > 0) {
+          selectedColorByGroups <- c(selectedColorByGroups, paste(key, selectedColorByValues, sep = ":"))
+        }
+      }
+      
+      filteredRefData <- ref_data()[, .SD, .SDcols = c("metric_id", color_by)]
+      filteredRefData[,(color_by) := lapply(color_by, function(col) paste0(col, ":", get(col)))]
+      filteredRefData[, color_group := do.call(paste, c(.SD, sep = " + ")), .SDcols = color_by]
+      filteredRefData[, in_selected_group := apply(.SD, 1, function(row) all(row %in% selectedColorByGroups)), .SDcols = color_by]
+      filteredRefData[in_selected_group == FALSE, color_group := "Others"]
+      filteredRefData[, in_selected_group := NULL]
+      
+      setkeyv(filteredRefData, "metric_id")
+      setkeyv(filteredTxnData, "metric_id")
+      filteredTxnData <- filteredRefData[filteredTxnData]
+      
+      color_mapping <- unique(filteredTxnData[, .(color_group)])
+      num_groups <- nrow(color_mapping)
+      color_palette <- viridis(num_groups)
+      filteredTxnData[, color := color_palette[.GRP], by = color_group]
+      filteredTxnData[color_group == "Others", color := "grey"]
+      
+      color_values <- setNames(unique(filteredTxnData$color), unique(filteredTxnData$color_group))
+      
+      ggplot(filteredTxnData, aes(x = metric_range_end_dt, y = metric_actl_num, group = metric_id, color = color_group)) +
+        geom_line(lwd = 1.2) +
+        scale_color_manual(values = color_values) +
+        labs(x = "Date", y = input$metric_name) +
+        my_theme
+    }
   })
   
-  if (FALSE) {
-    output$lineChart <- renderPlot({
-      u = ggplot(txn_data(), aes(x = metric_range_end_dt, y = metric_actl_num, group = metric_id, color = 'grey'))
-      u = u + geom_line()
-      u = u + scale_color_manual(values = "grey")
-      u = u + labs(title = "", x = "Date", y = "Value")
-      u = u + my_theme
-      u
-    })
-  }
-
+  output$wideData <- DT::renderDataTable({
+    wideData()
+  }, options = list(
+    scrollX = TRUE,
+    scrollY = "300px",
+    paging = FALSE,
+    dom = 't'
+  ))
+  
 }

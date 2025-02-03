@@ -1,12 +1,10 @@
 #-------------------------------------------------------------------------------
 # Set path to working directory
 #-------------------------------------------------------------------------------
-LOCAL = TRUE
-PRINT = TRUE
+LOCAL = FALSE
 if (LOCAL) {
   BASE_DIR <<- '/Users/zco7139/Library/CloudStorage/OneDrive-Takeda/Documents/GitHub/Shiny-UA/'
-} else {
-  BASE_DIR <<- './'
+  setwd(BASE_DIR)
 }
 
 
@@ -14,21 +12,19 @@ if (LOCAL) {
 # Load packages
 #-------------------------------------------------------------------------------
 library(shiny)
+library(shinyWidgets)
 library(ggplot2)
 library(dplyr)
 library(data.table)
+library(viridis)
+library(DT)
 
 
 #-------------------------------------------------------------------------------
 # Source functions
 #-------------------------------------------------------------------------------
-source(paste0(BASE_DIR, "utils.R"))
-source(paste0(BASE_DIR, "ui.R"))
-source(paste0(BASE_DIR, "server.R"))
-source(paste0(BASE_DIR, "ggplot_theme.R"))
-
-DEBUG = FALSE
-source(paste0(BASE_DIR, "debug.R"))
+source("ui.R")
+source("server.R")
 
 
 #-------------------------------------------------------------------------------
