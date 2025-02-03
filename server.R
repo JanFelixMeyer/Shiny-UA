@@ -279,7 +279,7 @@ server <- function(input, output, session) {
       p <- ggplot(filteredTxnData, aes(x = metric_range_end_dt, y = metric_actl_num, group = metric_id, color = color_group)) +
         geom_line(size = 1.2) +
         scale_color_manual(values = color_values, name = "") +
-        labs(x = "Date", y = input$metric_name) +
+        labs(x = "Date", y = "") +
         my_theme
     }
     
@@ -295,7 +295,7 @@ server <- function(input, output, session) {
       legend = list(
         orientation = "h",
         x = 0.5,
-        y = -0.25,      # Adjust this value to increase the gap between x-axis and legend
+        y = -0.25,            # Adjust this value to increase the gap between x-axis and legend
         xanchor = "center"
       ),
       margin = list(b = 150)  # Increase bottom margin to create more space below x-axis label
