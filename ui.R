@@ -1,7 +1,18 @@
 #-------------------------------------------------------------------------------
+# Load packages
+#-------------------------------------------------------------------------------
+library(shiny)
+library(shinyWidgets)
+library(ggplot2)
+library(dplyr)
+library(data.table)
+library(DT)
+library(plotly)
+library(scales)
+
+#-------------------------------------------------------------------------------
 # UI function
 #-------------------------------------------------------------------------------
-
 ui <- fluidPage(
   tags$head(
     tags$style(HTML("
@@ -10,7 +21,7 @@ ui <- fluidPage(
         margin: 0;
       }
       .sidebar {
-        min-height: 100vh;  /* ensures sidebar always extends to the bottom */
+        min-height: 100vh;
         overflow-y: auto;
       }
       .center-button {
@@ -37,6 +48,14 @@ ui <- fluidPage(
       #reset:hover {
         background-color: #555555;
       }
+      /* For standard tables */
+      table.dataTable tbody tr.selected {
+        background-color: #cc5a5a !important;
+      }
+      /* For tables inside a scrolling container */
+      .dataTables_scrollBody table.dataTable tbody tr.selected {
+        background-color: #cc5a5a !important;
+      }
     "))
   ),
   sidebarLayout(
@@ -56,7 +75,7 @@ ui <- fluidPage(
       width = 9,
       conditionalPanel(
         condition = "output.chartReady", 
-        plotOutput("lineChart", height = "600px")
+        plotlyOutput("lineChart", height = "600px")
       ),
       conditionalPanel(
         condition = "!output.chartReady",
@@ -65,7 +84,6 @@ ui <- fluidPage(
           h3("Please select anything from the filter.")
         )
       ),
-      # Only show the wide data table when a filter is selected:
       conditionalPanel(
         condition = "output.chartReady",
         DT::dataTableOutput("wideData")

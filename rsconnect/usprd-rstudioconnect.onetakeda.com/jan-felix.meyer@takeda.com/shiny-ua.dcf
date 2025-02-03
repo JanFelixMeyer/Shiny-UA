@@ -5,8 +5,8 @@ account: jan-felix.meyer@takeda.com
 server: usprd-rstudioconnect.onetakeda.com
 hostUrl: https://usprd-rstudioconnect.onetakeda.com/__api__
 appId: 4776
-bundleId: 435251
-url: https://usprd-rstudioconnect.onetakeda.com/content/a4f32ca7-ba35-4a44-ba5d-fb41ae44f1b7/
+bundleId: 435259
+url: https://usprd-rstudioconnect.onetakeda.com/UA/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
