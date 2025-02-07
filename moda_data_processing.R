@@ -230,7 +230,7 @@ CALC_KEY = c('start_date_month', 'start_date_year', 'location_description',
              'Area', 'Building', 'Campus', 'Company', 'Facility', 'Room', 
              'Site', 'location_full_name', 'test_type_code', 'test_type_desc', 
              'site_description')
-  
+
 ## Environmental monitoring viable data:
 
 # % CRR (Contamination Recovery Rate = % of non-zero results)
